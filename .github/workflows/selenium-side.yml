@@ -1,8 +1,10 @@
 name: Realey Footer Selenium Tests
 
 on:
+  # Allows the client to run the workflow manually
   workflow_dispatch:
 
+  # Automatically runs when the SIDE file or workflow changes
   push:
     branches:
       - main
@@ -14,369 +16,523 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   footer-tests:
     name: Run Footer Regression Suite
     runs-on: ubuntu-latest
 
+    timeout-minutes: 20
+
     steps:
+      # 1. Download repository files
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # 2. Install Node.js
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "22"
 
+      # 3. Show available project files
+      - name: Verify SIDE test file
+        run: |
+          echo "Repository files:"
+          find . -maxdepth 4 -type f -print
+
+          if [ ! -f "tests/realey-footer.side" ]; then
+            echo "ERROR: tests/realey-footer.side was not found."
+            exit 1
+          fi
+
+          echo "SIDE file found successfully."
+
+      # 4. Install the SIDE command-line runner
       - name: Install Selenium SIDE Runner
         run: |
           npm init -y
           npm install --save-dev selenium-side-runner chromedriver
 
+          echo "Node version:"
+          node --version
+
+          echo "NPM version:"
+          npm --version
+
+          echo "SIDE Runner version:"
+          npx selenium-side-runner --version || true
+
+          echo "Chrome version:"
+          google-chrome --version || chromium-browser --version || true
+
+          echo "ChromeDriver version:"
+          npx chromedriver --version || true
+
+      # 5. Create folders required by the report
       - name: Create report folders
         run: |
           mkdir -p test-results
           mkdir -p html-report
 
+      # 6. Execute the .side project
+      #
+      # continue-on-error allows the report to be created even when
+      # one or more Selenium tests fail.
       - name: Run Selenium SIDE tests
         id: selenium
         continue-on-error: true
+        shell: bash
         run: |
+          set +e
+
           export PATH="$PWD/node_modules/.bin:$PATH"
+
+          echo "========================================"
+          echo "Starting Realey footer Selenium tests"
+          echo "SIDE file: tests/realey-footer.side"
+          echo "========================================"
 
           xvfb-run -a npx selenium-side-runner \
             -w 1 \
-            -c "browserName=chrome" \
-            --output-directory=test-results \
-            --output-format=junit \
-            "tests/realey-footer.side"
+            -c "browserName=chrome goog:chromeOptions.args=[--headless,--no-sandbox,--disable-dev-shm-usage,--window-size=1920,1080]" \
+            "tests/realey-footer.side" \
+            2>&1 | tee test-results/selenium-console.log
 
-      - name: Display generated result files
+          TEST_EXIT_CODE=${PIPESTATUS[0]}
+
+          echo "$TEST_EXIT_CODE" > test-results/exit-code.txt
+
+          if [ "$TEST_EXIT_CODE" -eq 0 ]; then
+            echo "PASSED" > test-results/status.txt
+            echo "All Selenium tests passed."
+          else
+            echo "FAILED" > test-results/status.txt
+            echo "One or more Selenium tests failed."
+          fi
+
+          echo "Selenium exit code: $TEST_EXIT_CODE"
+
+          exit "$TEST_EXIT_CODE"
+
+      # 7. Display the result in GitHub Actions logs
+      - name: Display Selenium result
         if: always()
+        shell: bash
         run: |
-          echo "Generated Selenium result files:"
-          find test-results -type f -print || true
+          echo "========================================"
+          echo "SELENIUM TEST RESULT"
+          echo "========================================"
 
+          if [ -f "test-results/status.txt" ]; then
+            echo "Status: $(cat test-results/status.txt)"
+          else
+            echo "Status: ERROR"
+            echo "The Selenium runner did not create a status file."
+          fi
+
+          if [ -f "test-results/exit-code.txt" ]; then
+            echo "Exit code: $(cat test-results/exit-code.txt)"
+          fi
+
+          echo ""
+          echo "Console output:"
+          echo "----------------------------------------"
+
+          if [ -f "test-results/selenium-console.log" ]; then
+            cat test-results/selenium-console.log
+          else
+            echo "No Selenium console log was generated."
+          fi
+
+      # 8. Generate a browser-friendly HTML report
       - name: Generate HTML report
         if: always()
+        shell: bash
         run: |
           python3 <<'PYTHON'
-          import glob
+          from datetime import datetime, timezone
+          from pathlib import Path
           import html
-          import os
-          import xml.etree.ElementTree as ET
-          from datetime import datetime
+          import re
 
-          xml_files = glob.glob("test-results/**/*.xml", recursive=True)
+          results_dir = Path("test-results")
+          report_dir = Path("html-report")
+          report_dir.mkdir(parents=True, exist_ok=True)
 
-          suites = []
-          total_tests = 0
-          total_failures = 0
-          total_errors = 0
-          total_skipped = 0
-          total_time = 0.0
+          status_file = results_dir / "status.txt"
+          exit_code_file = results_dir / "exit-code.txt"
+          log_file = results_dir / "selenium-console.log"
 
-          for file_path in xml_files:
-              try:
-                  root = ET.parse(file_path).getroot()
-              except Exception:
-                  continue
-
-              roots = [root] if root.tag == "testsuite" else root.findall(".//testsuite")
-
-              for suite in roots:
-                  cases = []
-
-                  for case in suite.findall("testcase"):
-                      failure = case.find("failure")
-                      error = case.find("error")
-                      skipped = case.find("skipped")
-
-                      if failure is not None:
-                          status = "Failed"
-                          details = failure.get("message") or failure.text or "Assertion failed"
-                      elif error is not None:
-                          status = "Error"
-                          details = error.get("message") or error.text or "Execution error"
-                      elif skipped is not None:
-                          status = "Skipped"
-                          details = skipped.get("message") or skipped.text or ""
-                      else:
-                          status = "Passed"
-                          details = ""
-
-                      cases.append({
-                          "name": case.get("name", "Unnamed test"),
-                          "class": case.get("classname", ""),
-                          "time": case.get("time", "0"),
-                          "status": status,
-                          "details": details.strip(),
-                      })
-
-                  tests = int(suite.get("tests", len(cases)) or 0)
-                  failures = int(suite.get("failures", 0) or 0)
-                  errors = int(suite.get("errors", 0) or 0)
-                  skipped = int(suite.get("skipped", 0) or 0)
-                  duration = float(suite.get("time", 0) or 0)
-
-                  total_tests += tests
-                  total_failures += failures
-                  total_errors += errors
-                  total_skipped += skipped
-                  total_time += duration
-
-                  suites.append({
-                      "name": suite.get("name", "Selenium suite"),
-                      "cases": cases,
-                  })
-
-          passed = max(
-              total_tests - total_failures - total_errors - total_skipped,
-              0
+          status = (
+              status_file.read_text(encoding="utf-8").strip()
+              if status_file.exists()
+              else "ERROR"
           )
 
-          if not xml_files:
-              report_message = """
-              <div class="warning">
-                  No JUnit XML result was generated. Review the GitHub Actions
-                  Selenium execution logs.
-              </div>
-              """
+          exit_code = (
+              exit_code_file.read_text(encoding="utf-8").strip()
+              if exit_code_file.exists()
+              else "Unknown"
+          )
+
+          console_log = (
+              log_file.read_text(encoding="utf-8", errors="replace")
+              if log_file.exists()
+              else "No Selenium console output was generated."
+          )
+
+          # Remove terminal ANSI colour codes from the HTML report.
+          ansi_escape = re.compile(r"\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])")
+          clean_log = ansi_escape.sub("", console_log)
+
+          lower_log = clean_log.lower()
+
+          # Approximate counters based on the runner's console output.
+          passed_matches = re.findall(
+              r"(?:✓|passed|pass)\s+([^\n]+)",
+              clean_log,
+              flags=re.IGNORECASE
+          )
+
+          failed_matches = re.findall(
+              r"(?:✕|×|failed|fail)\s+([^\n]+)",
+              clean_log,
+              flags=re.IGNORECASE
+          )
+
+          passed_count = len(passed_matches)
+          failed_count = len(failed_matches)
+
+          if status == "PASSED" and passed_count == 0:
+              summary_message = "The Selenium SIDE project completed successfully."
+          elif status == "FAILED":
+              summary_message = (
+                  "One or more Selenium tests failed. "
+                  "Review the execution log below for the failed assertion or command."
+              )
           else:
-              report_message = ""
-
-          rows = []
-
-          for suite in suites:
-              rows.append(
-                  f'<tr class="suite-row">'
-                  f'<td colspan="5">{html.escape(suite["name"])}</td>'
-                  f'</tr>'
+              summary_message = (
+                  "The test result could not be determined. "
+                  "Review the workflow execution log."
               )
 
-              for case in suite["cases"]:
-                  css_status = case["status"].lower()
-                  details = html.escape(case["details"])
+          status_class = {
+              "PASSED": "passed",
+              "FAILED": "failed",
+              "ERROR": "error",
+          }.get(status, "error")
 
-                  rows.append(
-                      "<tr>"
-                      f'<td>{html.escape(case["name"])}</td>'
-                      f'<td>{html.escape(case["class"])}</td>'
-                      f'<td><span class="status {css_status}">'
-                      f'{case["status"]}</span></td>'
-                      f'<td>{html.escape(case["time"])}s</td>'
-                      f'<td><pre>{details}</pre></td>'
-                      "</tr>"
-                  )
+          generated_at = datetime.now(timezone.utc).strftime(
+              "%Y-%m-%d %H:%M:%S UTC"
+          )
+
+          escaped_log = html.escape(clean_log)
 
           report = f"""<!DOCTYPE html>
           <html lang="en">
           <head>
               <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1">
+              <meta
+                  name="viewport"
+                  content="width=device-width, initial-scale=1"
+              >
+
               <title>Realey Footer Selenium Report</title>
+
               <style>
+                  * {{
+                      box-sizing: border-box;
+                  }}
+
                   body {{
                       margin: 0;
                       padding: 32px;
-                      background: #f5f7fb;
+                      background: #f3f6fb;
                       color: #1f2937;
-                      font-family: Arial, sans-serif;
+                      font-family:
+                          Arial,
+                          Helvetica,
+                          sans-serif;
                   }}
 
                   .container {{
+                      width: 100%;
                       max-width: 1200px;
-                      margin: auto;
+                      margin: 0 auto;
+                  }}
+
+                  .header {{
+                      padding: 28px;
+                      margin-bottom: 24px;
+                      background: #ffffff;
+                      border-radius: 16px;
+                      box-shadow: 0 8px 25px rgba(15, 23, 42, 0.08);
                   }}
 
                   h1 {{
-                      margin-bottom: 6px;
+                      margin: 0 0 8px;
+                      font-size: 30px;
                   }}
 
-                  .date {{
-                      color: #6b7280;
+                  .subtitle {{
+                      margin: 0;
+                      color: #64748b;
+                      line-height: 1.6;
+                  }}
+
+                  .summary-grid {{
+                      display: grid;
+                      grid-template-columns:
+                          repeat(4, minmax(160px, 1fr));
+                      gap: 16px;
                       margin-bottom: 24px;
                   }}
 
-                  .summary {{
-                      display: grid;
-                      grid-template-columns: repeat(5, minmax(130px, 1fr));
-                      gap: 16px;
-                      margin-bottom: 28px;
-                  }}
-
                   .card {{
-                      padding: 20px;
-                      background: white;
-                      border-radius: 12px;
-                      box-shadow: 0 2px 10px rgba(0, 0, 0, .06);
+                      padding: 22px;
+                      background: #ffffff;
+                      border-radius: 14px;
+                      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.07);
                   }}
 
-                  .number {{
+                  .card-label {{
                       display: block;
-                      margin-top: 8px;
-                      font-size: 28px;
-                      font-weight: bold;
+                      margin-bottom: 9px;
+                      color: #64748b;
+                      font-size: 14px;
+                      font-weight: 600;
                   }}
 
-                  table {{
-                      width: 100%;
-                      border-collapse: collapse;
-                      background: white;
-                      border-radius: 12px;
-                      overflow: hidden;
-                      box-shadow: 0 2px 10px rgba(0, 0, 0, .06);
+                  .card-value {{
+                      display: block;
+                      font-size: 26px;
+                      font-weight: 800;
                   }}
 
-                  th, td {{
-                      padding: 14px;
-                      border-bottom: 1px solid #e5e7eb;
-                      text-align: left;
-                      vertical-align: top;
-                  }}
-
-                  th {{
-                      background: #111827;
-                      color: white;
-                  }}
-
-                  .suite-row td {{
-                      background: #eef2ff;
-                      font-weight: bold;
-                  }}
-
-                  .status {{
+                  .status-badge {{
                       display: inline-block;
-                      padding: 5px 10px;
+                      padding: 8px 14px;
                       border-radius: 999px;
-                      font-weight: bold;
+                      font-size: 14px;
+                      font-weight: 800;
                   }}
 
-                  .passed {{
+                  .status-badge.passed {{
                       background: #dcfce7;
                       color: #166534;
                   }}
 
-                  .failed, .error {{
+                  .status-badge.failed {{
                       background: #fee2e2;
                       color: #991b1b;
                   }}
 
-                  .skipped {{
+                  .status-badge.error {{
                       background: #fef3c7;
                       color: #92400e;
+                  }}
+
+                  .details {{
+                      padding: 24px;
+                      margin-bottom: 24px;
+                      background: #ffffff;
+                      border-radius: 14px;
+                      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.07);
+                  }}
+
+                  .details h2,
+                  .logs h2 {{
+                      margin-top: 0;
+                  }}
+
+                  .details p {{
+                      margin-bottom: 0;
+                      line-height: 1.7;
+                  }}
+
+                  .logs {{
+                      overflow: hidden;
+                      background: #0f172a;
+                      border-radius: 14px;
+                      box-shadow: 0 6px 20px rgba(15, 23, 42, 0.12);
+                  }}
+
+                  .logs-header {{
+                      padding: 18px 22px;
+                      background: #1e293b;
+                      color: #ffffff;
+                  }}
+
+                  .logs-header h2 {{
+                      margin: 0;
+                      font-size: 19px;
                   }}
 
                   pre {{
+                      max-height: 700px;
+                      padding: 24px;
                       margin: 0;
+                      overflow: auto;
+                      color: #dbeafe;
+                      font-family:
+                          Consolas,
+                          Monaco,
+                          monospace;
+                      font-size: 13px;
+                      line-height: 1.55;
                       white-space: pre-wrap;
-                      font-family: inherit;
+                      overflow-wrap: anywhere;
                   }}
 
-                  .warning {{
-                      padding: 18px;
-                      margin-bottom: 20px;
-                      border-radius: 10px;
-                      background: #fef3c7;
-                      color: #92400e;
+                  .footer {{
+                      padding: 20px 0 4px;
+                      color: #64748b;
+                      font-size: 13px;
+                      text-align: center;
                   }}
 
                   @media (max-width: 800px) {{
-                      .summary {{
-                          grid-template-columns: 1fr 1fr;
-                      }}
-
                       body {{
                           padding: 16px;
+                      }}
+
+                      .summary-grid {{
+                          grid-template-columns: 1fr 1fr;
+                      }}
+                  }}
+
+                  @media (max-width: 480px) {{
+                      .summary-grid {{
+                          grid-template-columns: 1fr;
                       }}
                   }}
               </style>
           </head>
+
           <body>
-              <div class="container">
-                  <h1>Realey Footer Selenium Report</h1>
+              <main class="container">
+                  <section class="header">
+                      <h1>Realey Footer Selenium Report</h1>
 
-                  <div class="date">
-                      Generated: {datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")} UTC
-                  </div>
+                      <p class="subtitle">
+                          Automated Selenium IDE footer regression test results.
+                          Generated on {generated_at}.
+                      </p>
+                  </section>
 
-                  {report_message}
+                  <section class="summary-grid">
+                      <article class="card">
+                          <span class="card-label">Overall status</span>
 
-                  <div class="summary">
-                      <div class="card">
-                          Total
-                          <span class="number">{total_tests}</span>
+                          <span class="status-badge {status_class}">
+                              {html.escape(status)}
+                          </span>
+                      </article>
+
+                      <article class="card">
+                          <span class="card-label">Exit code</span>
+
+                          <span class="card-value">
+                              {html.escape(exit_code)}
+                          </span>
+                      </article>
+
+                      <article class="card">
+                          <span class="card-label">
+                              Detected passed entries
+                          </span>
+
+                          <span class="card-value">
+                              {passed_count}
+                          </span>
+                      </article>
+
+                      <article class="card">
+                          <span class="card-label">
+                              Detected failed entries
+                          </span>
+
+                          <span class="card-value">
+                              {failed_count}
+                          </span>
+                      </article>
+                  </section>
+
+                  <section class="details">
+                      <h2>Execution summary</h2>
+
+                      <p>
+                          {html.escape(summary_message)}
+                      </p>
+                  </section>
+
+                  <section class="logs">
+                      <div class="logs-header">
+                          <h2>Complete Selenium execution log</h2>
                       </div>
 
-                      <div class="card">
-                          Passed
-                          <span class="number">{passed}</span>
-                      </div>
+                      <pre>{escaped_log}</pre>
+                  </section>
 
-                      <div class="card">
-                          Failed
-                          <span class="number">{total_failures}</span>
-                      </div>
-
-                      <div class="card">
-                          Errors
-                          <span class="number">{total_errors}</span>
-                      </div>
-
-                      <div class="card">
-                          Duration
-                          <span class="number">{total_time:.2f}s</span>
-                      </div>
-                  </div>
-
-                  <table>
-                      <thead>
-                          <tr>
-                              <th>Test</th>
-                              <th>Suite/Class</th>
-                              <th>Status</th>
-                              <th>Time</th>
-                              <th>Details</th>
-                          </tr>
-                      </thead>
-
-                      <tbody>
-                          {''.join(rows) or '<tr><td colspan="5">No test cases found.</td></tr>'}
-                      </tbody>
-                  </table>
-              </div>
+                  <footer class="footer">
+                      Realey Footer Regression Suite · GitHub Actions
+                  </footer>
+              </main>
           </body>
           </html>
           """
 
-          os.makedirs("html-report", exist_ok=True)
+          report_path = report_dir / "report.html"
+          report_path.write_text(report, encoding="utf-8")
 
-          with open("html-report/report.html", "w", encoding="utf-8") as file:
-              file.write(report)
-
-          print("HTML report generated: html-report/report.html")
+          print(f"HTML report generated: {report_path}")
+          print(f"Test status: {status}")
+          print(f"Exit code: {exit_code}")
           PYTHON
 
+      # 9. Verify that report.html exists
+      - name: Verify HTML report
+        if: always()
+        run: |
+          echo "Generated report files:"
+          find html-report -maxdepth 2 -type f -print || true
+
+          if [ ! -f "html-report/report.html" ]; then
+            echo "ERROR: html-report/report.html was not generated."
+            exit 1
+          fi
+
+          echo "HTML report generated successfully."
+
+      # 10. Upload browser-friendly HTML report
       - name: Upload HTML report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: realey-footer-html-report
-          path: html-report/
+          path: html-report/report.html
           retention-days: 30
           if-no-files-found: error
 
-      - name: Upload JUnit XML results
+      # 11. Upload the raw Selenium console output
+      - name: Upload raw Selenium results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: realey-footer-junit-results
+          name: realey-footer-raw-results
           path: test-results/
           retention-days: 30
           if-no-files-found: warn
 
+      # 12. Make the workflow red when the Selenium tests fail
+      #
+      # This runs after the reports are uploaded.
       - name: Mark workflow failed when tests fail
         if: steps.selenium.outcome == 'failure'
         run: |
-          echo "One or more footer tests failed. Check the HTML report."
+          echo "One or more Selenium footer tests failed."
+          echo "Download realey-footer-html-report for details."
           exit 1
