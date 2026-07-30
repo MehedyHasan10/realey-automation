@@ -11,3 +11,9 @@ blob-report/
 .env
 .env.*
 !.env.example
+
+screenshots/
+test-results/
+playwright-report/
+allure-results/
+allure-report/
