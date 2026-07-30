@@ -34,6 +34,7 @@ module.exports = defineConfig({
         outputFolder: 'allure-results',
         detail: true,
         suiteTitle: false,
+
         environmentInfo: {
           Environment: 'UAT',
           BaseURL: 'https://uat.realey.au/',
@@ -56,7 +57,7 @@ module.exports = defineConfig({
         }
       : null,
 
-    screenshot: 'on',
+    screenshot: 'only-on-failure',
 
     video: 'retain-on-failure',
 
@@ -66,8 +67,15 @@ module.exports = defineConfig({
 
     navigationTimeout: 30_000,
 
+    ignoreHTTPSErrors: false,
+
     launchOptions: process.env.CI
-      ? {}
+      ? {
+          args: [
+            '--disable-dev-shm-usage',
+            '--no-sandbox',
+          ],
+        }
       : {
           slowMo: 500,
           args: ['--start-maximized'],
