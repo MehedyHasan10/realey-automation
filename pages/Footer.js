@@ -4,19 +4,17 @@ class Footer {
   constructor(page) {
     this.page = page;
 
-    // Main footer heading
+    // ==================================================
+    // Main footer
+    // ==================================================
+
     this.footerHeading = page.getByRole('heading', {
       name: /let['’]s talk/i,
     });
 
-    // Footer main container
     this.footer = this.footerHeading.locator(
       'xpath=ancestor::div[contains(@class,"max-w-6xl")][1]',
     );
-
-    // --------------------------------------------------
-    // Footer main information
-    // --------------------------------------------------
 
     this.logo = this.footer.getByRole('img', {
       name: 'Realey Logo',
@@ -27,68 +25,24 @@ class Footer {
       /Realey is a platform dedicated to property buyers, sellers, and agents/i,
     );
 
-    // --------------------------------------------------
+    // ==================================================
     // Email subscription
-    // --------------------------------------------------
+    // ==================================================
 
-    this.emailInput = this.footer.getByPlaceholder(
-      'Enter your email',
-      { exact: true },
-    );
+    this.emailInput = this.footer.getByPlaceholder('Enter your email', {
+      exact: true,
+    });
 
-    // Email input এবং arrow button একই parent container-এর মধ্যে
     this.emailSection = this.emailInput.locator('xpath=parent::*');
+    this.emailSubmitButton = this.emailSection.locator('button').first();
 
-    this.emailSubmitButton = this.emailSection
-      .locator('button')
-      .first();
-
-    // Success toast
     this.subscriptionSuccessMessage = page
       .getByText(/Email submitted successfully/i)
       .first();
 
-    // --------------------------------------------------
-    // Quick Links
-    // --------------------------------------------------
-
-    this.quickLinksHeading = this.footer.getByRole('heading', {
-      name: 'Quick Links',
-      exact: true,
-    });
-
-    this.quickLinksSection = this.quickLinksHeading.locator(
-      'xpath=parent::*',
-    );
-
-    this.quickHomeLink = this.quickLinksSection.getByRole('link', {
-      name: 'Home',
-      exact: true,
-    });
-
-    this.quickAboutLink = this.quickLinksSection.getByRole('link', {
-      name: 'About',
-      exact: true,
-    });
-
-    this.quickProcessLink = this.quickLinksSection.getByRole('link', {
-      name: 'Process',
-      exact: true,
-    });
-
-    this.quickTeamLink = this.quickLinksSection.getByRole('link', {
-      name: 'Team',
-      exact: true,
-    });
-
-    this.quickContactLink = this.quickLinksSection.getByRole('link', {
-      name: 'Contact',
-      exact: true,
-    });
-
-    // --------------------------------------------------
-    // Fixed Price section
-    // --------------------------------------------------
+    // ==================================================
+    // Fixed Price
+    // ==================================================
 
     this.fixedPriceHeading = this.footer.getByRole('heading', {
       name: 'Fixed Price',
@@ -117,9 +71,9 @@ class Footer {
         exact: true,
       });
 
-    // --------------------------------------------------
-    // Auctions section
-    // --------------------------------------------------
+    // ==================================================
+    // Auctions
+    // ==================================================
 
     this.auctionsHeading = this.footer.getByRole('heading', {
       name: 'Auctions',
@@ -159,19 +113,95 @@ class Footer {
         name: 'Recently Ended',
         exact: true,
       });
+
+    // ==================================================
+    // Bottom footer
+    // ==================================================
+
+    this.copyrightText = page.getByText(
+      '© 2026 Realey. All rights reserved.',
+      { exact: true },
+    );
+
+    this.privacyPolicyLink = page.getByRole('link', {
+      name: 'Privacy Policy',
+      exact: true,
+    });
+
+    this.termsConditionsLink = page.getByRole('link', {
+      name: 'Terms & Conditions',
+      exact: true,
+    });
+
+    this.instagramLink = page.locator(
+      'a[href="https://www.instagram.com/realey.au/"]',
+    );
+
+    this.linkedinLink = page.locator(
+      'a[href="https://www.linkedin.com/company/realey/"]',
+    );
+
+    // ==================================================
+    // Destination page elements
+    // ==================================================
+
+    this.propertyListingsHeading = page.getByRole('heading', {
+      name: 'Property Listings',
+      exact: true,
+    });
+
+    this.pageNotFoundHeading = page.getByRole('heading', {
+      name: 'Page Not Found',
+      exact: true,
+    });
+
+    this.privacyPolicyHeading = page
+      .getByText(/Privacy\s*Policy/i)
+      .first();
+
+    this.termsConditionsHeading = page
+      .getByText(/Terms\s*&\s*Conditions/i)
+      .first();
   }
 
-  // --------------------------------------------------
-  // Common actions
-  // --------------------------------------------------
+  // ==================================================
+  // Common helpers
+  // ==================================================
 
   async scrollToFooter() {
     await this.footerHeading.scrollIntoViewIfNeeded();
+
+    await expect(
+      this.footerHeading,
+      'Footer heading is not visible after scrolling',
+    ).toBeVisible();
   }
 
-  // --------------------------------------------------
-  // Footer main verification
-  // --------------------------------------------------
+  async waitForInternalNavigation() {
+    await this.page.waitForLoadState('domcontentloaded');
+  }
+
+  async verifyPageNotFoundIsAbsent() {
+    await expect(
+      this.pageNotFoundHeading,
+      'The clicked footer link opened a Page Not Found page',
+    ).toHaveCount(0);
+  }
+
+  async verifyPropertyListingsIsVisible() {
+    await expect(
+      this.propertyListingsHeading,
+      'Property Listings heading was not displayed',
+    ).toBeVisible({
+      timeout: 10_000,
+    });
+
+    await this.verifyPageNotFoundIsAbsent();
+  }
+
+  // ==================================================
+  // Main footer verification
+  // ==================================================
 
   async verifyFooterVisible() {
     await expect(
@@ -209,9 +239,9 @@ class Footer {
     ).toBeVisible();
   }
 
-  // --------------------------------------------------
+  // ==================================================
   // Email subscription
-  // --------------------------------------------------
+  // ==================================================
 
   async verifyEmailSubscriptionElements() {
     await expect(
@@ -245,20 +275,13 @@ class Footer {
 
     await expect(
       this.emailInput,
-      'Entered email value was not saved in the input',
+      'Entered email value was not saved',
     ).toHaveValue(email);
   }
 
   async submitEmail() {
-    await expect(
-      this.emailSubmitButton,
-      'Email submit button is not visible',
-    ).toBeVisible();
-
-    await expect(
-      this.emailSubmitButton,
-      'Email submit button is disabled',
-    ).toBeEnabled();
+    await expect(this.emailSubmitButton).toBeVisible();
+    await expect(this.emailSubmitButton).toBeEnabled();
 
     await this.emailSubmitButton.click();
   }
@@ -266,55 +289,15 @@ class Footer {
   async verifySubscriptionResult() {
     await expect(
       this.subscriptionSuccessMessage,
-      'Email success toast was not displayed',
+      'Email success message was not displayed',
     ).toBeVisible({
       timeout: 10_000,
     });
-
-    await expect(
-      this.subscriptionSuccessMessage,
-    ).toContainText('Email submitted successfully');
   }
 
-  // --------------------------------------------------
-  // Quick Links
-  // --------------------------------------------------
-
-  async verifyQuickLinksSection() {
-    await expect.soft(
-      this.quickLinksHeading,
-      'Quick Links heading is missing',
-    ).toBeVisible();
-
-    await expect.soft(
-      this.quickHomeLink,
-      'Home quick link is missing',
-    ).toBeVisible();
-
-    await expect.soft(
-      this.quickAboutLink,
-      'About quick link is missing',
-    ).toBeVisible();
-
-    await expect.soft(
-      this.quickProcessLink,
-      'Process quick link is missing',
-    ).toBeVisible();
-
-    await expect.soft(
-      this.quickTeamLink,
-      'Team quick link is missing',
-    ).toBeVisible();
-
-    await expect.soft(
-      this.quickContactLink,
-      'Contact quick link is missing',
-    ).toBeVisible();
-  }
-
-  // --------------------------------------------------
-  // Fixed Price
-  // --------------------------------------------------
+  // ==================================================
+  // Fixed Price section verification
+  // ==================================================
 
   async verifyFixedPriceSection() {
     await expect.soft(
@@ -338,9 +321,27 @@ class Footer {
     ).toBeVisible();
   }
 
-  // --------------------------------------------------
-  // Auctions
-  // --------------------------------------------------
+  async clickFixedPriceListingsAndVerify() {
+    await this.fixedPriceListingsLink.click();
+    await this.waitForInternalNavigation();
+    await this.verifyPropertyListingsIsVisible();
+  }
+
+  async clickFixedPriceRecentlyAddedAndVerify() {
+    await this.fixedPriceRecentlyAddedLink.click();
+    await this.waitForInternalNavigation();
+    await this.verifyPageNotFoundIsAbsent();
+  }
+
+  async clickFixedPriceRecentlyEndedAndVerify() {
+    await this.fixedPriceRecentlyEndedLink.click();
+    await this.waitForInternalNavigation();
+    await this.verifyPageNotFoundIsAbsent();
+  }
+
+  // ==================================================
+  // Auctions section verification
+  // ==================================================
 
   async verifyAuctionsSection() {
     await expect.soft(
@@ -374,18 +375,129 @@ class Footer {
     ).toBeVisible();
   }
 
-  // --------------------------------------------------
-  // Full footer verification
-  // --------------------------------------------------
+  async clickAuctionsListingsAndVerify() {
+    await this.auctionsListingsLink.click();
+    await this.waitForInternalNavigation();
+    await this.verifyPropertyListingsIsVisible();
+  }
+
+  async clickAuctionsEndingSoonAndVerify() {
+    await this.auctionsEndingSoonLink.click();
+    await this.waitForInternalNavigation();
+    await this.verifyPageNotFoundIsAbsent();
+  }
+
+  async clickAuctionsStartingSoonAndVerify() {
+    await this.auctionsStartingSoonLink.click();
+    await this.waitForInternalNavigation();
+    await this.verifyPageNotFoundIsAbsent();
+  }
+
+  async clickAuctionsRecentlyAddedAndVerify() {
+    await this.auctionsRecentlyAddedLink.click();
+    await this.waitForInternalNavigation();
+    await this.verifyPageNotFoundIsAbsent();
+  }
+
+  async clickAuctionsRecentlyEndedAndVerify() {
+    await this.auctionsRecentlyEndedLink.click();
+    await this.waitForInternalNavigation();
+    await this.verifyPageNotFoundIsAbsent();
+  }
+
+  // ==================================================
+  // Bottom footer verification
+  // ==================================================
+
+  async verifyBottomFooterElements() {
+    await expect(
+      this.copyrightText,
+      'Copyright text is missing',
+    ).toBeVisible();
+
+    await expect(
+      this.privacyPolicyLink,
+      'Privacy Policy link is missing',
+    ).toBeVisible();
+
+    await expect(
+      this.termsConditionsLink,
+      'Terms & Conditions link is missing',
+    ).toBeVisible();
+
+    await expect(
+      this.instagramLink,
+      'Instagram link is missing',
+    ).toBeVisible();
+
+    await expect(
+      this.linkedinLink,
+      'LinkedIn link is missing',
+    ).toBeVisible();
+  }
+
+  async clickPrivacyPolicyAndVerify() {
+    await this.privacyPolicyLink.click();
+    await this.waitForInternalNavigation();
+
+    await expect(
+      this.privacyPolicyHeading,
+      'Privacy Policy page text was not displayed',
+    ).toBeVisible();
+
+    await this.verifyPageNotFoundIsAbsent();
+  }
+
+  async clickTermsConditionsAndVerify() {
+    await this.termsConditionsLink.click();
+    await this.waitForInternalNavigation();
+
+    await expect(
+      this.termsConditionsHeading,
+      'Terms & Conditions page text was not displayed',
+    ).toBeVisible();
+
+    await this.verifyPageNotFoundIsAbsent();
+  }
+
+  async clickInstagramAndVerify() {
+    const [instagramPage] = await Promise.all([
+      this.page.context().waitForEvent('page'),
+      this.instagramLink.click(),
+    ]);
+
+    await instagramPage.waitForLoadState('domcontentloaded');
+
+    await expect(instagramPage).toHaveURL(
+      /instagram\.com\/realey\.au\/?/i,
+    );
+
+    await instagramPage.close();
+  }
+
+  async clickLinkedInAndVerify() {
+    const [linkedinPage] = await Promise.all([
+      this.page.context().waitForEvent('page'),
+      this.linkedinLink.click(),
+    ]);
+
+    await linkedinPage.waitForLoadState('domcontentloaded');
+
+    await expect(linkedinPage).toHaveURL(
+      /linkedin\.com\/company\/realey/i,
+    );
+
+    await linkedinPage.close();
+  }
 
   async verifyAllFooterElements() {
     await this.verifyFooterVisible();
     await this.verifyLogoVisible();
     await this.verifyDescriptionVisible();
     await this.verifyEmailSubscriptionElements();
-    await this.verifyQuickLinksSection();
     await this.verifyFixedPriceSection();
     await this.verifyAuctionsSection();
+    await this.verifyBottomFooterElements();
   }
 }
 

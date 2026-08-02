@@ -15,10 +15,9 @@ class Header {
       exact: true,
     });
 
-    // Desktop navigation container
+    // Desktop navigation
     this.desktopNavigation = this.header.locator('nav');
 
-    // Navigation buttons
     this.homeButton = this.desktopNavigation.getByRole('button', {
       name: 'Home',
       exact: true,
@@ -44,12 +43,7 @@ class Header {
       exact: true,
     });
 
-    this.connectButton = this.desktopNavigation.getByRole('button', {
-      name: 'Connect',
-      exact: true,
-    });
-
-    // Desktop action area
+    // Desktop action buttons
     this.desktopActionArea = this.header
       .locator('div.hidden.lg\\:block')
       .last();
@@ -63,6 +57,39 @@ class Header {
       name: 'Get Started',
       exact: true,
     });
+
+    // Page verification elements
+    this.homePageHeading = page.getByRole('heading', {
+      name: 'Featured Properties',
+      exact: true,
+    });
+
+    this.aboutPageText = page.getByText('About Realey', {
+      exact: true,
+    });
+
+    this.listingsPageHeading = page.getByRole('heading', {
+      name: 'Property Listings',
+      exact: true,
+    });
+
+    this.searchPageHeading = page
+      .getByText(/Find Your\s*Perfect\s*Property/i)
+      .first();
+
+    this.pricingPageHeading = page.getByRole('heading', {
+      name: 'Pricing Plans',
+      exact: true,
+    });
+
+    this.loginPageHeading = page.getByRole('heading', {
+      name: 'Welcome back',
+      exact: true,
+    });
+
+    this.getStartedPageHeading = page
+      .getByText(/Choose Your\s*Profession/i)
+      .first();
   }
 
   async verifyHeaderVisible() {
@@ -119,11 +146,6 @@ class Header {
       this.pricingButton,
       'Pricing navigation button is missing',
     ).toBeVisible();
-
-    await expect.soft(
-      this.connectButton,
-      'Connect navigation button is missing',
-    ).toBeVisible();
   }
 
   async verifyActionButtonsVisible() {
@@ -150,35 +172,73 @@ class Header {
   }
 
   async clickHome() {
+    await expect(this.homeButton).toBeVisible();
     await this.homeButton.click();
+
+    await expect(
+      this.homePageHeading,
+      'Featured Properties heading is not visible after clicking Home',
+    ).toBeVisible();
   }
 
   async clickAbout() {
+    await expect(this.aboutButton).toBeVisible();
     await this.aboutButton.click();
+
+    await expect(
+      this.aboutPageText,
+      'About Realey text is not visible after clicking About',
+    ).toBeVisible();
   }
 
   async clickListings() {
+    await expect(this.listingsButton).toBeVisible();
     await this.listingsButton.click();
+
+    await expect(
+      this.listingsPageHeading,
+      'Property Listings heading is not visible after clicking Listings',
+    ).toBeVisible();
   }
 
   async clickSearch() {
+    await expect(this.searchButton).toBeVisible();
     await this.searchButton.click();
+
+    await expect(
+      this.searchPageHeading,
+      'Find Your Perfect Property text is not visible after clicking Search',
+    ).toBeVisible();
   }
 
   async clickPricing() {
+    await expect(this.pricingButton).toBeVisible();
     await this.pricingButton.click();
-  }
 
-  async clickConnect() {
-    await this.connectButton.click();
+    await expect(
+      this.pricingPageHeading,
+      'Pricing Plans heading is not visible after clicking Pricing',
+    ).toBeVisible();
   }
 
   async clickLogin() {
+    await expect(this.loginButton).toBeVisible();
     await this.loginButton.click();
+
+    await expect(
+      this.loginPageHeading,
+      'Welcome back heading is not visible after clicking Login',
+    ).toBeVisible();
   }
 
   async clickGetStarted() {
+    await expect(this.getStartedButton).toBeVisible();
     await this.getStartedButton.click();
+
+    await expect(
+      this.getStartedPageHeading,
+      'Choose Your Profession text is not visible after clicking Get Started',
+    ).toBeVisible();
   }
 }
 

@@ -45,7 +45,7 @@ test.describe('Header Tests', () => {
       await stepWithScreenshot(
         page,
         testInfo,
-        'Verify Home About Listings Search Pricing and Connect buttons',
+        'Verify Home About Listings Search and Pricing buttons',
         async () => {
           await header.verifyNavigationButtonsVisible();
         },
@@ -64,6 +64,118 @@ test.describe('Header Tests', () => {
         'Verify Login and Get Started buttons',
         async () => {
           await header.verifyActionButtonsVisible();
+        },
+      );
+    },
+  );
+
+  test(
+    'Click Home and verify Featured Properties',
+    async ({ page }, testInfo) => {
+      const header = new Header(page);
+
+      await stepWithScreenshot(
+        page,
+        testInfo,
+        'Click Home and verify Featured Properties',
+        async () => {
+          await header.clickHome();
+        },
+      );
+    },
+  );
+
+  test(
+    'Click About and verify About Realey',
+    async ({ page }, testInfo) => {
+      const header = new Header(page);
+
+      await stepWithScreenshot(
+        page,
+        testInfo,
+        'Click About and verify About Realey',
+        async () => {
+          await header.clickAbout();
+        },
+      );
+    },
+  );
+
+  test(
+    'Click Listings and verify Property Listings',
+    async ({ page }, testInfo) => {
+      const header = new Header(page);
+
+      await stepWithScreenshot(
+        page,
+        testInfo,
+        'Click Listings and verify Property Listings',
+        async () => {
+          await header.clickListings();
+        },
+      );
+    },
+  );
+
+  test(
+    'Click Search and verify Find Your Perfect Property',
+    async ({ page }, testInfo) => {
+      const header = new Header(page);
+
+      await stepWithScreenshot(
+        page,
+        testInfo,
+        'Click Search and verify Find Your Perfect Property',
+        async () => {
+          await header.clickSearch();
+        },
+      );
+    },
+  );
+
+  test(
+    'Click Pricing and verify Pricing Plans',
+    async ({ page }, testInfo) => {
+      const header = new Header(page);
+
+      await stepWithScreenshot(
+        page,
+        testInfo,
+        'Click Pricing and verify Pricing Plans',
+        async () => {
+          await header.clickPricing();
+        },
+      );
+    },
+  );
+
+  test(
+    'Click Login and verify Welcome back',
+    async ({ page }, testInfo) => {
+      const header = new Header(page);
+
+      await stepWithScreenshot(
+        page,
+        testInfo,
+        'Click Login and verify Welcome back',
+        async () => {
+          await header.clickLogin();
+        },
+      );
+    },
+  );
+
+  test(
+    'Click Get Started and verify Choose Your Profession',
+    async ({ page }, testInfo) => {
+      const header = new Header(page);
+
+      await stepWithScreenshot(
+        page,
+        testInfo,
+        'Click Get Started and verify Choose Your Profession',
+        async () => {
+          await header.clickGetStarted();
         },
       );
     },
