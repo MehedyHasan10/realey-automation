@@ -1,37 +1,285 @@
-// const { test, expect } = require('../../fixtures/baseTest');
-// const { stepWithScreenshot } = require('../../utils/step');
-// const HomePage = require('../../pages/HomePage');
-// const LoginPage = require('../../pages/LoginPage');
+const { test, expect } = require("@playwright/test");
 
-// test.describe('Authentication', () => {
-//   test.skip(
-//     !process.env.BUYER_EMAIL || !process.env.BUYER_PASSWORD,
-//     'Set BUYER_EMAIL and BUYER_PASSWORD in .env'
-//   );
+const { LoginPage } = require("../../pages/LoginPage");
 
-//   test('Buyer can log in', async ({ page }, testInfo) => {
-//     const homePage = new HomePage(page);
-//     const loginPage = new LoginPage(page);
+const { MailosaurHelper } = require("../../utils/mailosaurHelper");
 
-//     await stepWithScreenshot(page, testInfo, 'Open homepage', async () => {
-//       await homePage.open();
-//     });
+const { loginData } = require("../../fixtures/test-data/loginData");
 
-//     await stepWithScreenshot(page, testInfo, 'Open login page', async () => {
-//       await homePage.loginLink.click();
-//     });
+const {
+  mailosaurSecrets,
+} = require("../../fixtures/test-data/mailosaurSecrets");
 
-//     await stepWithScreenshot(page, testInfo, 'Enter buyer credentials', async () => {
-//       await loginPage.emailInput.fill(process.env.BUYER_EMAIL);
-//       await loginPage.passwordInput.fill(process.env.BUYER_PASSWORD);
-//     });
+const { stepWithScreenshot } = require("../../utils/step");
 
-//     await stepWithScreenshot(page, testInfo, 'Submit login form', async () => {
-//       await loginPage.submitButton.click();
-//     });
+test.describe("Realey Login and Mailosaur OTP Tests", () => {
+  let loginPage;
 
-//     await stepWithScreenshot(page, testInfo, 'Verify successful authentication', async () => {
-//       await expect(page).not.toHaveURL(/login|sign-in/i);
-//     });
-//   });
-// });
+  test.beforeEach(async ({ page }) => {
+    loginPage = new LoginPage(page);
+  });
+
+  test("Login page UI is displayed correctly", async ({ page }, testInfo) => {
+    await stepWithScreenshot(page, testInfo, "Open login page", async () => {
+      await loginPage.goto(loginData.application.loginPath);
+    });
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Verify login page content",
+      async () => {
+        await loginPage.verifyLoginPageIsVisible();
+
+        await expect(loginPage.emailInput).toHaveAttribute("type", "email");
+
+        await expect(loginPage.passwordInput).toHaveAttribute(
+          "type",
+          "password",
+        );
+
+        await expect(loginPage.loginButton).toBeDisabled();
+
+        await expect(loginPage.rememberMeCheckbox).not.toBeChecked();
+      },
+    );
+  });
+
+  test("Login button becomes enabled after entering credentials", async ({
+    page,
+  }, testInfo) => {
+    await stepWithScreenshot(page, testInfo, "Open login page", async () => {
+      await loginPage.goto(loginData.application.loginPath);
+    });
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Enter valid email and password",
+      async () => {
+        await loginPage.fillLoginForm(
+          loginData.application.email,
+          loginData.application.password,
+        );
+      },
+    );
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Verify login button is enabled",
+      async () => {
+        await expect(loginPage.loginButton).toBeEnabled();
+      },
+    );
+  });
+
+  test("Password visibility toggle works", async ({ page }, testInfo) => {
+    await stepWithScreenshot(page, testInfo, "Open login page", async () => {
+      await loginPage.goto(loginData.application.loginPath);
+    });
+
+    await stepWithScreenshot(page, testInfo, "Enter password", async () => {
+      await loginPage.fillPassword(loginData.application.password);
+
+      await expect(loginPage.passwordInput).toHaveAttribute("type", "password");
+    });
+
+    await stepWithScreenshot(page, testInfo, "Show password", async () => {
+      await loginPage.showPassword();
+
+      await expect(loginPage.passwordInput).toHaveAttribute("type", "text");
+    });
+
+    await stepWithScreenshot(page, testInfo, "Hide password", async () => {
+      await loginPage.hidePassword();
+
+      await expect(loginPage.passwordInput).toHaveAttribute("type", "password");
+    });
+  });
+
+  test("Remember me checkbox can be selected", async ({ page }, testInfo) => {
+    await stepWithScreenshot(page, testInfo, "Open login page", async () => {
+      await loginPage.goto(loginData.application.loginPath);
+    });
+
+    await stepWithScreenshot(page, testInfo, "Select Remember me", async () => {
+      await loginPage.checkRememberMe();
+
+      await expect(loginPage.rememberMeCheckbox).toBeChecked();
+    });
+  });
+
+  test("Invalid login credentials show an error", async ({
+    page,
+  }, testInfo) => {
+    await stepWithScreenshot(page, testInfo, "Open login page", async () => {
+      await loginPage.goto(loginData.application.loginPath);
+    });
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Submit invalid credentials",
+      async () => {
+        await loginPage.login(
+          loginData.invalidUser.email,
+          loginData.invalidUser.password,
+        );
+      },
+    );
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Verify login error message",
+      async () => {
+        await expect(
+          loginPage.errorMessage,
+          "An error message should appear for invalid credentials",
+        ).toBeVisible({
+          timeout: 20_000,
+        });
+      },
+    );
+  });
+
+  test("Forgot Password button is clickable", async ({ page }, testInfo) => {
+    await stepWithScreenshot(page, testInfo, "Open login page", async () => {
+      await loginPage.goto(loginData.application.loginPath);
+    });
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Click Forgot Password",
+      async () => {
+        await loginPage.forgotPasswordButton.click();
+      },
+    );
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Verify forgot password page",
+      async () => {
+        await expect(page).toHaveURL(/forgot|password/i, {
+          timeout: 15_000,
+        });
+      },
+    );
+  });
+
+  test("Create profile button is clickable", async ({ page }, testInfo) => {
+    await stepWithScreenshot(page, testInfo, "Open login page", async () => {
+      await loginPage.goto(loginData.application.loginPath);
+    });
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Click Create profile",
+      async () => {
+        await loginPage.createProfileButton.click();
+      },
+    );
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Verify registration page",
+      async () => {
+        await expect(page).toHaveURL(/register|signup|create/i, {
+          timeout: 15_000,
+        });
+      },
+    );
+  });
+
+  test("User can login using Mailosaur OTP", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+
+    const mailosaur = new MailosaurHelper({
+      apiKey: mailosaurSecrets.apiKey,
+
+      serverId: mailosaurSecrets.serverId,
+
+      timeout: loginData.mailosaur.emailTimeout,
+    });
+
+    /*
+     * Use a one-minute buffer to avoid
+     * timestamp differences.
+     */
+    const loginStartedAt = new Date(Date.now() - 60_000);
+
+    await stepWithScreenshot(page, testInfo, "Open login page", async () => {
+      await loginPage.goto(loginData.application.loginPath);
+    });
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Submit valid login credentials",
+      async () => {
+        await loginPage.login(
+          loginData.application.email,
+
+          loginData.application.password,
+        );
+      },
+    );
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Verify OTP page appears",
+      async () => {
+        await loginPage.waitForOtpPage();
+      },
+    );
+
+    let otpResult;
+
+    await test.step("Read login OTP from Mailosaur", async () => {
+      otpResult = await mailosaur.getLoginOtp({
+        sentTo: loginData.mailosaur.emailAddress,
+
+        subject: loginData.mailosaur.subject,
+
+        receivedAfter: loginStartedAt,
+
+        otpPattern: loginData.mailosaur.otpPattern,
+
+        timeout: loginData.mailosaur.emailTimeout,
+      });
+
+      expect(otpResult.otp, "Mailosaur should return a six-digit OTP").toMatch(
+        /^\d{6}$/,
+      );
+
+      console.log(`Mailosaur email subject: ${otpResult.subject}`);
+
+      console.log(`OTP received: ${otpResult.otp}`);
+    });
+
+    await stepWithScreenshot(page, testInfo, "Enter login OTP", async () => {
+      await loginPage.enterOtp(otpResult.otp);
+    });
+
+    await stepWithScreenshot(page, testInfo, "Submit login OTP", async () => {
+      await loginPage.submitOtp();
+    });
+
+    await stepWithScreenshot(
+      page,
+      testInfo,
+      "Verify successful login",
+      async () => {
+        await expect(page).toHaveURL(loginData.expected.successUrlPattern, {
+          timeout: 30_000,
+        });
+      },
+    );
+  });
+});
