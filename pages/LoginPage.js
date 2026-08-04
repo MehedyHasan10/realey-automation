@@ -93,6 +93,27 @@ class LoginPage {
       });
 
     /* =====================================================
+       FORGOT PASSWORD PAGE
+    ===================================================== */
+
+    this.forgotPasswordHeading = page.getByRole("heading", {
+      name: "Forgot Password",
+      exact: true,
+    });
+
+    /* =====================================================
+       CREATE PROFILE PAGE
+    ===================================================== */
+
+    /*
+     * The visible text is rendered across nested spans:
+     * Choose Your + Profession
+     */
+    this.chooseYourProfessionText = page.getByText(
+      /Choose Your\s*Profession/i
+    );
+
+    /* =====================================================
        OTP PAGE
     ===================================================== */
 
@@ -457,37 +478,82 @@ class LoginPage {
   }
 
   /* =====================================================
-     NAVIGATION BUTTONS
+     FORGOT PASSWORD
   ===================================================== */
 
   async clickForgotPassword() {
     await expect(
-      this.forgotPasswordButton
+      this.forgotPasswordButton,
+      "Forgot Password button should be visible"
     ).toBeVisible();
+
+    await expect(
+      this.forgotPasswordButton,
+      "Forgot Password button should be enabled"
+    ).toBeEnabled();
 
     await this.forgotPasswordButton.click();
   }
 
+  async verifyForgotPasswordOpened() {
+    await expect(
+      this.forgotPasswordHeading,
+      '"Forgot Password" heading should be visible'
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  /* =====================================================
+     CREATE PROFILE
+  ===================================================== */
+
   async clickCreateProfile() {
     await expect(
-      this.createProfileButton
+      this.createProfileButton,
+      "Create Profile button should be visible"
     ).toBeVisible();
+
+    await expect(
+      this.createProfileButton,
+      "Create Profile button should be enabled"
+    ).toBeEnabled();
 
     await this.createProfileButton.click();
   }
 
+  async verifyCreateProfileOpened() {
+    await expect(
+      this.chooseYourProfessionText,
+      '"Choose Your Profession" text should be visible'
+    ).toBeVisible({
+      timeout: 15_000,
+    });
+  }
+
+  /* =====================================================
+     OTHER NAVIGATION BUTTONS
+  ===================================================== */
+
   async clickTerms() {
-    await expect(this.termsButton).toBeVisible();
+    await expect(
+      this.termsButton,
+      "T&C button should be visible"
+    ).toBeVisible();
+
     await this.termsButton.click();
   }
 
   async clickPrivacyPolicy() {
     await expect(
-      this.privacyPolicyButton
+      this.privacyPolicyButton,
+      "Privacy Policy button should be visible"
     ).toBeVisible();
 
     await this.privacyPolicyButton.click();
   }
 }
 
-module.exports = { LoginPage };
+module.exports = {
+  LoginPage,
+};
