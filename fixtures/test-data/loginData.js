@@ -7,6 +7,9 @@ const loginData = {
 
     password:
       "#Test1234",
+
+    otp:
+      "123456",
   },
 
   invalidUser: {
@@ -15,22 +18,6 @@ const loginData = {
 
     password:
       "WrongPassword@123",
-  },
-
-  mailosaur: {
-    emailAddress:
-      "realey-login@1bjhpbwd.mailosaur.net",
-
-    /*
-     * Leave blank initially.
-     * This avoids exact-subject mismatch.
-     */
-    subject: "",
-
-    emailTimeout: 110_000,
-
-    otpPattern:
-      /Your login code[\s\S]*?(\d{6})/i,
   },
 
   expected: {

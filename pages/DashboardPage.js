@@ -45,10 +45,9 @@ class DashboardPage {
       exact: true,
     });
 
-    this.createNewListingButton = page.getByRole("button", {
-      name: "Create New Listing",
-      exact: true,
-    });
+    this.createNewListingButton = page
+      .locator('button:has-text("Create New Listing")')
+      .first();
 
     this.createListingButton = page.getByRole("button", {
       name: /create.*listing|add.*listing/i,
@@ -151,75 +150,102 @@ class DashboardPage {
   ===================================================== */
 
   async clickCreateListing() {
-    const firstListingVisible =
-      await this.createFirstListingButton
+    await this.page.waitForLoadState("domcontentloaded");
+
+    await expect(
+      this.page,
+      "Agent dashboard should be open before creating a listing"
+    ).toHaveURL(/dashboard\/agent|dashboard|agent/i, {
+      timeout: 30_000,
+    });
+
+    /*
+     * The dashboard shell loads before the Listings content.
+     * Wait for the main Listings area or open it from the sidebar.
+     */
+    const listingsHeadingVisible = await this.listingsPageHeading
+      .isVisible()
+      .catch(() => false);
+
+    if (!listingsHeadingVisible) {
+      const listingsMenuVisible = await this.listingsMenuButton
         .isVisible()
         .catch(() => false);
 
-    if (firstListingVisible) {
-      await expect(
-        this.createFirstListingButton,
-        "Create Your First Listing button should be visible"
-      ).toBeVisible();
-
-      await expect(
-        this.createFirstListingButton,
-        "Create Your First Listing button should be enabled"
-      ).toBeEnabled();
-
-      await this.createFirstListingButton.scrollIntoViewIfNeeded();
-      await this.createFirstListingButton.click();
-
-      return;
+      if (listingsMenuVisible) {
+        await this.listingsMenuButton.click();
+      }
     }
 
-    const createNewVisible =
-      await this.createNewListingButton
-        .isVisible()
-        .catch(() => false);
+    await expect(
+      this.listingsPageHeading,
+      "Listings page should finish loading"
+    ).toBeVisible({
+      timeout: 30_000,
+    });
+
+    const createNewButton = this.page
+      .locator('button:has-text("Create New Listing")')
+      .first();
+
+    const createFirstButton = this.page
+      .locator('button:has-text("Create Your First Listing")')
+      .first();
+
+    const createNewVisible = await createNewButton
+      .isVisible()
+      .catch(() => false);
 
     if (createNewVisible) {
       await expect(
-        this.createNewListingButton,
-        "Create New Listing button should be visible"
-      ).toBeVisible();
-
-      await expect(
-        this.createNewListingButton,
+        createNewButton,
         "Create New Listing button should be enabled"
-      ).toBeEnabled();
+      ).toBeEnabled({
+        timeout: 20_000,
+      });
 
-      await this.createNewListingButton.scrollIntoViewIfNeeded();
-      await this.createNewListingButton.click();
-
+      await createNewButton.scrollIntoViewIfNeeded();
+      await createNewButton.click();
       return;
     }
 
-    const fallbackButton = this.createListingButton.first();
+    const createFirstVisible = await createFirstButton
+      .isVisible()
+      .catch(() => false);
 
-    const fallbackVisible =
-      await fallbackButton
-        .isVisible()
-        .catch(() => false);
-
-    if (fallbackVisible) {
+    if (createFirstVisible) {
       await expect(
-        fallbackButton,
-        "Create Listing button should be enabled"
-      ).toBeEnabled();
+        createFirstButton,
+        "Create Your First Listing button should be enabled"
+      ).toBeEnabled({
+        timeout: 20_000,
+      });
 
-      await fallbackButton.scrollIntoViewIfNeeded();
-      await fallbackButton.click();
-
+      await createFirstButton.scrollIntoViewIfNeeded();
+      await createFirstButton.click();
       return;
     }
 
-    throw new Error(
-      [
-        "Create Listing button was not found.",
-        `Current URL: ${this.page.url()}`,
-      ].join("\n")
-    );
+    /*
+     * Last fallback: wait for either button because React may still be
+     * hydrating the Listings content after the heading appears.
+     */
+    const anyCreateButton = this.page
+      .locator(
+        'button:has-text("Create New Listing"), button:has-text("Create Your First Listing")'
+      )
+      .first();
+
+    await expect(
+      anyCreateButton,
+      "A Create Listing button should appear after the Listings page loads"
+    ).toBeVisible({
+      timeout: 30_000,
+    });
+
+    await expect(anyCreateButton).toBeEnabled();
+    await anyCreateButton.scrollIntoViewIfNeeded();
+    await anyCreateButton.click();
   }
 
   /* =====================================================

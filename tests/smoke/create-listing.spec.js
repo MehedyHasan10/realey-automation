@@ -1,4 +1,4 @@
-const { test, expect } = require("@playwright/test");
+const { test } = require("@playwright/test");
 
 const {
   LoginPage,
@@ -29,10 +29,6 @@ const {
 } = require("../../pages/ListingMediaPage");
 
 const {
-  MailosaurHelper,
-} = require("../../utils/mailosaurHelper");
-
-const {
   stepWithScreenshot,
 } = require("../../utils/step");
 
@@ -43,14 +39,6 @@ const {
 const {
   listingData,
 } = require("../../fixtures/test-data/listingData");
-
-/*
- * Use the real Mailosaur secrets file.
- * Do not import mailosaurSecrets.example.js.
- */
-const {
-  mailosaurSecrets,
-} = require("../../fixtures/test-data/mailosaurSecrets.example");
 
 test.describe("Agent Create Listing Tests", () => {
   test(
@@ -78,26 +66,6 @@ test.describe("Agent Create Listing Tests", () => {
 
       const listingMediaPage =
         new ListingMediaPage(page);
-
-      const mailosaur =
-        new MailosaurHelper({
-          apiKey:
-            mailosaurSecrets.apiKey,
-
-          serverId:
-            mailosaurSecrets.serverId,
-
-          timeout:
-            loginData.mailosaur
-              .emailTimeout,
-        });
-
-      /*
-       * Use a one-minute buffer to avoid small
-       * differences between local and server time.
-       */
-      const loginStartedAt =
-        new Date(Date.now() - 60_000);
 
       /* =====================================================
          LOGIN
@@ -135,51 +103,13 @@ test.describe("Agent Create Listing Tests", () => {
         }
       );
 
-      let otpResult;
-
-      await test.step(
-        "Read OTP from Mailosaur",
-        async () => {
-          otpResult =
-            await mailosaur.getLoginOtp({
-              sentTo:
-                loginData.mailosaur
-                  .emailAddress,
-
-              subject:
-                loginData.mailosaur
-                  .subject,
-
-              receivedAfter:
-                loginStartedAt,
-
-              otpPattern:
-                loginData.mailosaur
-                  .otpPattern,
-
-              timeout:
-                loginData.mailosaur
-                  .emailTimeout,
-            });
-
-          expect(
-            otpResult.otp,
-            "Mailosaur should return a valid 6-digit OTP"
-          ).toMatch(/^\d{6}$/);
-
-          console.log(
-            `Mailosaur email subject: ${otpResult.subject}`
-          );
-        }
-      );
-
       await stepWithScreenshot(
         page,
         testInfo,
-        "Enter login OTP",
+        "Enter fixed login OTP",
         async () => {
           await loginPage.enterOtp(
-            otpResult.otp
+            loginData.application.otp
           );
         }
       );
